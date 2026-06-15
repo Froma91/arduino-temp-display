@@ -1,5 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -8,7 +17,7 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Dashboard en vivo que lee la temperatura de un sensor Arduino vía Web Serial API.",
+          "Dashboard en vivo que lee la temperatura de un sensor Arduino vía Web Serial API, con histórico cada 10 segundos.",
       },
       { property: "og:title", content: "Monitor de Temperatura Arduino" },
       {
@@ -20,12 +29,16 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
-// Detección mínima de Web Serial API
 type SerialPortLike = {
   open: (opts: { baudRate: number }) => Promise<void>;
   close: () => Promise<void>;
   readable: ReadableStream<Uint8Array> | null;
 };
+
+type Sample = { t: number; value: number; label: string };
+
+const SAMPLE_INTERVAL_MS = 10_000;
+const MAX_SAMPLES = 60; // 10 min de histórico
 
 function hasWebSerial(): boolean {
   return typeof navigator !== "undefined" && "serial" in navigator;
@@ -38,17 +51,58 @@ function Index() {
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [baudRate, setBaudRate] = useState(9600);
+  const [history, setHistory] = useState<Sample[]>([]);
 
   const portRef = useRef<SerialPortLike | null>(null);
   const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
   const keepReadingRef = useRef(false);
+  const latestTempRef = useRef<number | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     setSupported(hasWebSerial());
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, []);
+
+  const startSampling = () => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = setInterval(() => {
+      const v = latestTempRef.current;
+      if (v === null) return;
+      const now = new Date();
+      setHistory((prev) => {
+        const next = [
+          ...prev,
+          {
+            t: now.getTime(),
+            value: v,
+            label: now.toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+            }),
+          },
+        ];
+        return next.length > MAX_SAMPLES ? next.slice(-MAX_SAMPLES) : next;
+      });
+    }, SAMPLE_INTERVAL_MS);
+  };
+
+  const stopSampling = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  };
+
   const disconnect = async () => {
     keepReadingRef.current = false;
+    stopSampling();
     try {
       await readerRef.current?.cancel();
     } catch {}
@@ -72,6 +126,7 @@ function Index() {
       portRef.current = port;
       setConnected(true);
       keepReadingRef.current = true;
+      startSampling();
       readLoop(port);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "No se pudo abrir el puerto";
@@ -96,11 +151,11 @@ function Index() {
           const line = buffer.slice(0, nlIdx).trim();
           buffer = buffer.slice(nlIdx + 1);
           if (!line) continue;
-          // Acepta "23.4", "T:23.4", "temp=23.4 C", etc.
           const match = line.match(/-?\d+(\.\d+)?/);
           if (match) {
             const value = parseFloat(match[0]);
             if (!Number.isNaN(value)) {
+              latestTempRef.current = value;
               setTemp(value);
               setLastUpdate(new Date());
             }
@@ -117,9 +172,17 @@ function Index() {
     }
   };
 
+  const clearHistory = () => setHistory([]);
+
+  const values = history.map((h) => h.value);
+  const minV = values.length ? Math.min(...values) : null;
+  const maxV = values.length ? Math.max(...values) : null;
+  const avgV =
+    values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
+
   return (
     <main className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto flex min-h-screen max-w-3xl flex-col px-6 py-10">
+      <div className="mx-auto flex min-h-screen max-w-5xl flex-col px-6 py-10">
         <header className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="h-2 w-2 rounded-full bg-primary shadow-[0_0_12px_var(--color-primary)]" />
@@ -139,26 +202,137 @@ function Index() {
           </span>
         </header>
 
-        <section className="my-auto flex flex-col items-center justify-center py-16">
-          <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-            Temperatura actual
-          </p>
-          <div className="mt-6 flex items-start font-mono">
-            <span className="text-[12rem] leading-none font-bold tabular-nums tracking-tighter sm:text-[16rem]">
-              {temp === null ? "--.-" : temp.toFixed(1)}
-            </span>
-            <span className="mt-6 ml-2 text-3xl font-light text-muted-foreground sm:mt-10 sm:text-5xl">
-              °C
-            </span>
+        <section className="mt-10 grid gap-8 lg:grid-cols-2 lg:items-center">
+          <div className="flex flex-col items-center justify-center text-center">
+            <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
+              Temperatura actual
+            </p>
+            <div className="mt-4 flex items-start font-mono">
+              <span className="text-[8rem] leading-none font-bold tabular-nums tracking-tighter sm:text-[11rem]">
+                {temp === null ? "--.-" : temp.toFixed(1)}
+              </span>
+              <span className="mt-4 ml-2 text-2xl font-light text-muted-foreground sm:mt-6 sm:text-4xl">
+                °C
+              </span>
+            </div>
+            <p className="mt-4 text-sm text-muted-foreground">
+              {lastUpdate
+                ? `Actualizado: ${lastUpdate.toLocaleTimeString()}`
+                : "Esperando primera lectura…"}
+            </p>
+
+            <div className="mt-6 grid w-full max-w-sm grid-cols-3 gap-3">
+              {[
+                { label: "Mín", value: minV },
+                { label: "Prom", value: avgV },
+                { label: "Máx", value: maxV },
+              ].map((s) => (
+                <div
+                  key={s.label}
+                  className="rounded-lg border border-border bg-card px-3 py-2"
+                >
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                    {s.label}
+                  </p>
+                  <p className="font-mono text-lg tabular-nums">
+                    {s.value === null ? "—" : s.value.toFixed(1)}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
-          <p className="mt-6 text-sm text-muted-foreground">
-            {lastUpdate
-              ? `Actualizado: ${lastUpdate.toLocaleTimeString()}`
-              : "Esperando primera lectura…"}
-          </p>
+
+          <div className="rounded-2xl border border-border bg-card p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-wider text-muted-foreground">
+                  Histórico
+                </p>
+                <p className="text-xs text-muted-foreground/70">
+                  1 muestra cada 10 s · últimas {MAX_SAMPLES}
+                </p>
+              </div>
+              <button
+                onClick={clearHistory}
+                disabled={!history.length}
+                className="rounded-md border border-border bg-background px-2.5 py-1 text-xs hover:bg-accent disabled:opacity-40"
+              >
+                Limpiar
+              </button>
+            </div>
+            <div className="h-64 w-full">
+              {history.length === 0 ? (
+                <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+                  {connected
+                    ? "Recopilando datos…"
+                    : "Conecta el Arduino para comenzar."}
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart
+                    data={history}
+                    margin={{ top: 8, right: 8, left: -16, bottom: 0 }}
+                  >
+                    <defs>
+                      <linearGradient id="tempFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop
+                          offset="0%"
+                          stopColor="var(--color-primary)"
+                          stopOpacity={0.5}
+                        />
+                        <stop
+                          offset="100%"
+                          stopColor="var(--color-primary)"
+                          stopOpacity={0}
+                        />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="var(--color-border)"
+                    />
+                    <XAxis
+                      dataKey="label"
+                      stroke="var(--color-muted-foreground)"
+                      fontSize={10}
+                      tickLine={false}
+                      axisLine={false}
+                      minTickGap={24}
+                    />
+                    <YAxis
+                      stroke="var(--color-muted-foreground)"
+                      fontSize={10}
+                      tickLine={false}
+                      axisLine={false}
+                      domain={["auto", "auto"]}
+                      width={36}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        background: "var(--color-card)",
+                        border: "1px solid var(--color-border)",
+                        borderRadius: 8,
+                        fontSize: 12,
+                      }}
+                      formatter={(v: number) => [`${v.toFixed(1)} °C`, "Temp"]}
+                      labelStyle={{ color: "var(--color-muted-foreground)" }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="value"
+                      stroke="var(--color-primary)"
+                      strokeWidth={2}
+                      fill="url(#tempFill)"
+                      isAnimationActive={false}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
         </section>
 
-        <footer className="mt-auto space-y-4 rounded-2xl border border-border bg-card p-6">
+        <footer className="mt-10 space-y-4 rounded-2xl border border-border bg-card p-6">
           {!supported ? (
             <p className="text-sm text-destructive">
               Tu navegador no soporta Web Serial API. Usa Chrome o Edge en
@@ -199,9 +373,7 @@ function Index() {
                   </button>
                 )}
               </div>
-              {error && (
-                <p className="text-xs text-destructive">{error}</p>
-              )}
+              {error && <p className="text-xs text-destructive">{error}</p>}
               <details className="text-xs text-muted-foreground">
                 <summary className="cursor-pointer hover:text-foreground">
                   Cómo programar el Arduino
@@ -213,7 +385,7 @@ function Index() {
 void loop() {
   float t = readSensor(); // tu sensor (LM35, DHT11, DS18B20...)
   Serial.println(t);      // una lectura por línea
-  delay(1000);
+  delay(1000);            // la web muestrea cada 10 s automáticamente
 }`}</pre>
               </details>
             </>
