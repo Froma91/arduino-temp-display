@@ -39,7 +39,7 @@ type SerialPortLike = {
 type Sample = { t: number; value: number; label: string };
 
 const SAMPLE_INTERVAL_MS = 10_000;
-const MAX_SAMPLES = 60; // 10 min de histórico
+const MAX_SAMPLES = 60; // 10 min of history
 const MIN_TEMP = 20;
 const MAX_TEMP = 30;
 
@@ -123,7 +123,7 @@ function Index() {
   const connect = async () => {
     setError(null);
     try {
-      // @ts-expect-error – Web Serial API no está en los tipos por defecto
+      // @ts-expect-error – Web Serial API is not in default types
       const port: SerialPortLike = await navigator.serial.requestPort();
       await port.open({ baudRate });
       portRef.current = port;
@@ -132,7 +132,7 @@ function Index() {
       startSampling();
       readLoop(port);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "No se pudo abrir el puerto";
+      const msg = e instanceof Error ? e.message : "Could not open the port";
       setError(msg);
     }
   };
@@ -166,7 +166,7 @@ function Index() {
         }
       }
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Lectura interrumpida";
+      const msg = e instanceof Error ? e.message : "Reading interrupted";
       setError(msg);
     } finally {
       try {
@@ -212,7 +212,7 @@ function Index() {
           <div className="flex items-center gap-3">
             <div className="h-2 w-2 rounded-full bg-primary shadow-[0_0_12px_var(--color-primary)]" />
             <h1 className="text-sm font-medium tracking-widest text-muted-foreground uppercase">
-              Arduino · Sensor de Temperatura
+              Arduino · Temperature Sensor
             </h1>
           </div>
           <span
@@ -223,24 +223,24 @@ function Index() {
                 : "border-border text-muted-foreground")
             }
           >
-            {connected ? "● En vivo" : "○ Desconectado"}
+            {connected ? "● Live" : "○ Disconnected"}
           </span>
         </header>
 
         <section className="mt-10 grid gap-8 lg:grid-cols-2 lg:items-center">
           <div className="flex flex-col items-center justify-center text-center">
             <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-              Temperatura actual
+              Current Temperature
             </p>
             {tempState && (
               <img
                 src={getTempImage(tempState)}
                 alt={
                   tempState === "cold"
-                    ? "Muy frío"
+                    ? "Very cold"
                     : tempState === "hot"
-                    ? "Muy caliente"
-                    : "Agradable"
+                    ? "Very hot"
+                    : "Comfortable"
                 }
                 className="mt-3 h-20 w-20 object-contain sm:h-24 sm:w-24"
                 width={512}
@@ -269,23 +269,23 @@ function Index() {
                 }`}
               >
                 {tempState === "cold"
-                  ? "Muy frío"
+                  ? "Very cold"
                   : tempState === "hot"
-                  ? "Muy caliente"
-                  : "Agradable"}
+                  ? "Very hot"
+                  : "Comfortable"}
               </span>
             )}
             <p className="mt-3 text-sm text-muted-foreground">
               {lastUpdate
-                ? `Actualizado: ${lastUpdate.toLocaleTimeString()}`
-                : "Esperando primera lectura…"}
+                ? `Updated: ${lastUpdate.toLocaleTimeString()}`
+                : "Waiting for first reading…"}
             </p>
 
             <div className="mt-6 grid w-full max-w-sm grid-cols-3 gap-3">
               {[
-                { label: "Mín", value: minV },
-                { label: "Prom", value: avgV },
-                { label: "Máx", value: maxV },
+                { label: "Min", value: minV },
+                { label: "Avg", value: avgV },
+                { label: "Max", value: maxV },
               ].map((s) => (
                 <div
                   key={s.label}
@@ -306,10 +306,10 @@ function Index() {
             <div className="mb-3 flex items-center justify-between">
               <div>
                 <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                  Histórico
+                  History
                 </p>
                 <p className="text-xs text-muted-foreground/70">
-                  1 muestra cada 10 s · últimas {MAX_SAMPLES}
+                  1 sample every 10 s · last {MAX_SAMPLES}
                 </p>
               </div>
               <button
@@ -317,15 +317,15 @@ function Index() {
                 disabled={!history.length}
                 className="rounded-md border border-border bg-background px-2.5 py-1 text-xs hover:bg-accent disabled:opacity-40"
               >
-                Limpiar
+                Clear
               </button>
             </div>
             <div className="h-64 w-full">
               {history.length === 0 ? (
                 <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
                   {connected
-                    ? "Recopilando datos…"
-                    : "Conecta el Arduino para comenzar."}
+                    ? "Collecting data…"
+                    : "Connect the Arduino to start."}
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
@@ -382,7 +382,7 @@ function Index() {
                       stroke="var(--color-chart-3)"
                       strokeDasharray="4 4"
                       label={{
-                        value: "Mín 20 °C",
+                        value: "Min 20 °C",
                         position: "insideBottomRight",
                         fontSize: 10,
                         fill: "var(--color-chart-3)",
@@ -393,7 +393,7 @@ function Index() {
                       stroke="var(--color-chart-1)"
                       strokeDasharray="4 4"
                       label={{
-                        value: "Máx 30 °C",
+                        value: "Max 30 °C",
                         position: "insideTopRight",
                         fontSize: 10,
                         fill: "var(--color-chart-1)",
@@ -417,14 +417,14 @@ function Index() {
         <footer className="mt-10 space-y-4 rounded-2xl border border-border bg-card p-6">
           {!supported ? (
             <p className="text-sm text-destructive">
-              Tu navegador no soporta Web Serial API. Usa Chrome o Edge en
-              escritorio.
+              Your browser does not support Web Serial API. Use Chrome or Edge on
+              desktop.
             </p>
           ) : (
             <>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
                 <label className="flex flex-col text-xs uppercase tracking-wider text-muted-foreground">
-                  Baudios
+                  Baud rate
                   <select
                     value={baudRate}
                     onChange={(e) => setBaudRate(Number(e.target.value))}
@@ -444,30 +444,30 @@ function Index() {
                     onClick={disconnect}
                     className="rounded-md border border-border bg-background px-5 py-2.5 text-sm font-medium hover:bg-accent"
                   >
-                    Desconectar
+                    Disconnect
                   </button>
                 ) : (
                   <button
                     onClick={connect}
                     className="rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
                   >
-                    Conectar Arduino
+                    Connect Arduino
                   </button>
                 )}
               </div>
               {error && <p className="text-xs text-destructive">{error}</p>}
               <details className="text-xs text-muted-foreground">
                 <summary className="cursor-pointer hover:text-foreground">
-                  Cómo programar el Arduino
+                  How to program the Arduino
                 </summary>
                 <pre className="mt-2 overflow-x-auto rounded-md bg-muted p-3 text-[11px] leading-relaxed">{`void setup() {
   Serial.begin(9600);
 }
 
 void loop() {
-  float t = readSensor(); // tu sensor (LM35, DHT11, DS18B20...)
-  Serial.println(t);      // una lectura por línea
-  delay(1000);            // la web muestrea cada 10 s automáticamente
+  float t = readSensor(); // your sensor (LM35, DHT11, DS18B20...)
+  Serial.println(t);      // one reading per line
+  delay(1000);            // the web samples every 10 s automatically
 }`}</pre>
               </details>
             </>
