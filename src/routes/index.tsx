@@ -14,16 +14,16 @@ import {
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Monitor de Temperatura Arduino" },
+      { title: "Arduino Temperature Monitor" },
       {
         name: "description",
         content:
-          "Dashboard en vivo que lee la temperatura de un sensor Arduino vía Web Serial API, con histórico cada 10 segundos.",
+          "Live dashboard that reads temperature from an Arduino sensor via Web Serial API, with history every 10 seconds.",
       },
-      { property: "og:title", content: "Monitor de Temperatura Arduino" },
+      { property: "og:title", content: "Arduino Temperature Monitor" },
       {
         property: "og:description",
-        content: "Lectura en tiempo real desde tu Arduino conectado por USB.",
+        content: "Real-time reading from your Arduino connected via USB.",
       },
     ],
   }),
