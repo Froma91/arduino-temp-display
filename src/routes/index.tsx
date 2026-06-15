@@ -4,6 +4,7 @@ import {
   Area,
   AreaChart,
   CartesianGrid,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -39,6 +40,8 @@ type Sample = { t: number; value: number; label: string };
 
 const SAMPLE_INTERVAL_MS = 10_000;
 const MAX_SAMPLES = 60; // 10 min de histórico
+const MIN_TEMP = 20;
+const MAX_TEMP = 30;
 
 function hasWebSerial(): boolean {
   return typeof navigator !== "undefined" && "serial" in navigator;
@@ -180,6 +183,28 @@ function Index() {
   const avgV =
     values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
 
+  const tempState: "cold" | "comfortable" | "hot" | null =
+    temp === null
+      ? null
+      : temp < MIN_TEMP
+      ? "cold"
+      : temp > MAX_TEMP
+      ? "hot"
+      : "comfortable";
+
+  const getTempImage = (state: typeof tempState) => {
+    if (state === "cold") return "/assets/temp-cold.png";
+    if (state === "hot") return "/assets/temp-hot.png";
+    return "/assets/temp-comfortable.png";
+  };
+
+  const tempColorClass =
+    tempState === "cold"
+      ? "text-chart-3"
+      : tempState === "hot"
+      ? "text-destructive"
+      : "text-primary";
+
   return (
     <main className="min-h-screen bg-background text-foreground">
       <div className="mx-auto flex min-h-screen max-w-5xl flex-col px-6 py-10">
@@ -207,15 +232,50 @@ function Index() {
             <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
               Temperatura actual
             </p>
-            <div className="mt-4 flex items-start font-mono">
-              <span className="text-[8rem] leading-none font-bold tabular-nums tracking-tighter sm:text-[11rem]">
+            {tempState && (
+              <img
+                src={getTempImage(tempState)}
+                alt={
+                  tempState === "cold"
+                    ? "Muy frío"
+                    : tempState === "hot"
+                    ? "Muy caliente"
+                    : "Agradable"
+                }
+                className="mt-3 h-20 w-20 object-contain sm:h-24 sm:w-24"
+                width={512}
+                height={512}
+                loading="lazy"
+              />
+            )}
+            <div className="mt-2 flex items-start font-mono">
+              <span
+                className={`text-[8rem] leading-none font-bold tabular-nums tracking-tighter sm:text-[11rem] ${tempColorClass}`}
+              >
                 {temp === null ? "--.-" : temp.toFixed(1)}
               </span>
               <span className="mt-4 ml-2 text-2xl font-light text-muted-foreground sm:mt-6 sm:text-4xl">
                 °C
               </span>
             </div>
-            <p className="mt-4 text-sm text-muted-foreground">
+            {tempState && (
+              <span
+                className={`mt-2 inline-block rounded-full border px-3 py-1 text-xs font-medium ${
+                  tempState === "cold"
+                    ? "border-chart-3/40 bg-chart-3/10 text-chart-3"
+                    : tempState === "hot"
+                    ? "border-destructive/40 bg-destructive/10 text-destructive"
+                    : "border-primary/40 bg-primary/10 text-primary"
+                }`}
+              >
+                {tempState === "cold"
+                  ? "Muy frío"
+                  : tempState === "hot"
+                  ? "Muy caliente"
+                  : "Agradable"}
+              </span>
+            )}
+            <p className="mt-3 text-sm text-muted-foreground">
               {lastUpdate
                 ? `Actualizado: ${lastUpdate.toLocaleTimeString()}`
                 : "Esperando primera lectura…"}
@@ -316,6 +376,28 @@ function Index() {
                       }}
                       formatter={(v: number) => [`${v.toFixed(1)} °C`, "Temp"]}
                       labelStyle={{ color: "var(--color-muted-foreground)" }}
+                    />
+                    <ReferenceLine
+                      y={MIN_TEMP}
+                      stroke="var(--color-chart-3)"
+                      strokeDasharray="4 4"
+                      label={{
+                        value: "Mín 20 °C",
+                        position: "insideBottomRight",
+                        fontSize: 10,
+                        fill: "var(--color-chart-3)",
+                      }}
+                    />
+                    <ReferenceLine
+                      y={MAX_TEMP}
+                      stroke="var(--color-chart-1)"
+                      strokeDasharray="4 4"
+                      label={{
+                        value: "Máx 30 °C",
+                        position: "insideTopRight",
+                        fontSize: 10,
+                        fill: "var(--color-chart-1)",
+                      }}
                     />
                     <Area
                       type="monotone"
